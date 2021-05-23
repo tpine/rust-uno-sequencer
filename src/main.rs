@@ -1,6 +1,9 @@
 #![no_std]
 #![no_main]
 
+mod lcd;
+use crate::lcd::LCD;
+
 extern crate panic_halt;
 use arduino_uno::adc;
 use arduino_uno::prelude::*;
@@ -22,7 +25,7 @@ fn main() -> ! {
     );
 
     let mut watchdog = wdt::Wdt::new(&dp.CPU.mcusr, dp.WDT);
-    watchdog.start(wdt::Timeout::Ms8000);
+    watchdog.disable();
 
     let mut timer2 = pwm::Timer2Pwm::new(dp.TC2, pwm::Prescaler::Prescale64);
     let mut output = pins.d11.into_output(&mut pins.ddr).into_pwm(&mut timer2);
@@ -46,8 +49,23 @@ fn main() -> ! {
 
     let mut delay = 60;
 
+    let lcd_rw = pins.d12.into_output(&mut pins.ddr);
+    let lcd_enable = pins.d10.into_output(&mut pins.ddr);
+
+    let lcd_d0 = pins.d2.into_output(&mut pins.ddr);
+    let lcd_d1 = pins.d3.into_output(&mut pins.ddr);
+    let lcd_d2 = pins.d4.into_output(&mut pins.ddr);
+    let lcd_d3 = pins.d5.into_output(&mut pins.ddr);
+
+    ufmt::uwrite!(&mut serial, "Pre LCD\n\r").void_unwrap();
+    let mut lcd = LCD::new(lcd_rw, lcd_enable, lcd_d0, lcd_d1, lcd_d2, lcd_d3);
+    ufmt::uwrite!(&mut serial, "Called new\n\r").void_unwrap();
+    lcd.begin(16, 2, None);
+    lcd.print("test");
+    ufmt::uwrite!(&mut serial, "Called begin\n\r").void_unwrap();
+
     loop {
-        watchdog.feed();
+        // watchdog.feed();
 
         let values: [u16; 3] = [
             nb::block!(adc.read(&mut a0)).void_unwrap(),
